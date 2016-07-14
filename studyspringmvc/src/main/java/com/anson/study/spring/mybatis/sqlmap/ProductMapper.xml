@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.anson.study.spring.dao.IProductDao" >
+
+  <resultMap id="BaseResultMap" type="com.anson.study.spring.dto.Product" >
+    <id column="id" property="id" jdbcType="INTEGER" />
+    <result column="product_name" property="productName" jdbcType="VARCHAR" />
+    <result column="introduce" property="introduce" jdbcType="VARCHAR" />
+    <result column="price" property="price" jdbcType="DECIMAL" />
+    <result column="ctime" property="ctime" jdbcType="TIMESTAMP" />
+    <result column="utime" property="utime" jdbcType="TIMESTAMP" />
+  </resultMap>
+  
+  <sql id="Base_Column_List" >
+    id, product_name, introduce, price, ctime, utime
+  </sql>
+  
+  <select id="getAllProduct" resultMap="BaseResultMap">
+   select 
+    <include refid="Base_Column_List" />
+    from product
+  </select>
+  
+  <select id="getProductById" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from product
+    where id = #{id,jdbcType=INTEGER}
+  </select>
+  
+  <insert id="insertProduct" parameterType="com.anson.study.spring.dto.Product" >
+    insert into product (
+    	product_name, 
+    	introduce, 
+    	price, 
+    	ctime
+    ) values (
+    	#{productName,jdbcType=VARCHAR}, 
+    	#{introduce,jdbcType=VARCHAR}, 
+      	#{price,jdbcType=DECIMAL}, 
+      	NOW()
+     )
+  </insert>
+  
+  <update id="updateProductById" parameterType="com.anson.study.spring.dto.Product" >
+    update product
+    set 
+      utime = NOW()
+      <if test="productName != null and productName != ''">
+      ,product_name = #{productName,jdbcType=VARCHAR}
+      </if>
+      <if test="introduce != null and introduce != ''">
+      ,introduce = #{introduce,jdbcType=VARCHAR}
+      </if>
+      <if test="price != null and price>0">
+      ,price = #{price,jdbcType=DECIMAL}
+      </if>
+      
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+</mapper>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd http://www.springframework.org/schema/tx
+    http://www.springframework.org/schema/tx/spring-tx-3.0.xsd">
+	
+	<!-- Root Context: defines shared resources visible to all other web components -->
+
+	<!--
+		CSRF protection. Here we only include the CsrfFilter instead of all of Spring Security.
+		See http://docs.spring.io/spring-security/site/docs/3.2.x/reference/htmlsingle/#csrf for more information on
+		Spring Security's CSRF protection
+	-->
+
+	<bean id="csrfFilter" class="org.springframework.security.web.csrf.CsrfFilter">
+		<constructor-arg>
+			<bean class="org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository"/>
+		</constructor-arg>
+	</bean>
+	<!--
+		Provides automatic CSRF token inclusion when using Spring MVC Form tags or Thymeleaf. See
+		http://localhost:8080/#forms and form.jsp for examples
+	-->
+	<bean id="requestDataValueProcessor" class="org.springframework.security.web.servlet.support.csrf.CsrfRequestDataValueProcessor"/>
+
+<!-- ======================================================================================= -->
+<!-- ==================================  配置myBatis ======================================= -->
+<!-- ======================================================================================= -->
+    <!-- 1.引入配置文件(包含了Redis的配置文件) -->  
+    <bean id="propertyConfigurer"  
+        class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"> 
+        <!--   
+        <property name="location" value="classpath:jdbc.properties" />  
+        -->
+        
+        <property name="locations">
+        	<list>
+        		<value>classpath:jdbc.properties</value>
+        		<value>classpath:redis.properties</value>
+        	</list>
+        </property>
+    </bean>  
+    
+    <!-- 
+                        引入配置文件方法（二）
+         <context:property-placeholder location="classpath:resources/jdbc.properties"/>
+     -->
+     
+    	
+	<!-- 2.定义数据源 -->
+    <bean id="dataSource"  
+        class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">  
+        <property name="driverClassName" value="${driver}"/>  
+        <property name="url" value="${url}"/>  
+        <property name="username" value="${username}"/>  
+        <property name="password" value="${password}"/>  
+	    <!-- 连接初始值，连接池启动时创建的连接数量的初始值 -->  
+	    <property name="initialSize" value="${initialSize}" />  
+	    <!-- 连接池的最大值，同一时间可以从池分配的最多连接数量，0时无限制 -->  
+	    <property name="maxActive" value="${maxActive}" />  
+	    <!-- 最大空闲值.当经过一个高峰时间后，连接池可以慢慢将已经用不到的连接慢慢释放一部分，一直减少到maxIdle为止 ，0时无限制-->  
+	    <property name="maxIdle" value="${maxIdle}" />  
+	    <!-- 最小空闲值.当空闲的连接数少于阀值时，连接池就会预申请去一些连接，以免洪峰来时来不及申请 -->  
+	    <property name="minIdle" value="${minIdle}" />  
+	    <!-- 是否对已备语句进行池管理（布尔值），是否对PreparedStatement进行缓存 -->  
+	    <property name="poolPreparedStatements" value="true" />  
+	    <!-- 是否对sql进行自动提交 -->  
+	    <property name="defaultAutoCommit" value="false" />        
+    </bean>
+    
+    <!-- 3.配置mybatis的sqlSessionFactory -->  
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">  
+        <property name="dataSource" ref="dataSource" />  
+        <!-- 配置myBatis全局设定文件 -->
+        <property name="configLocation" value="classpath:com/anson/study/spring/mybatis/config.xml" />
+        <!-- 配置DTO包使用别名  -->
+        <property name="typeAliasesPackage" value="com.anson.study.spring.dto"/> 
+        <!-- 自动扫描sql xml文件 ，要加上classpath:com/...-->  
+        <property name="mapperLocations" value="classpath:com/anson/study/spring/mybatis/sqlmap/*.xml"></property>  
+    </bean>  
+    
+    <!-- 4.配置扫描Dao接口包，动态实现DAO接口，注入到Spring容器中 -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+    	<!-- 注入 第三步配置的sqlSessionFactory -->
+    	<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+    	<!-- 配置扫描Dao接口包 -->
+    	<property name="basePackage" value="com.anson.study.spring.dao"/>
+    </bean>
+    
+    <!-- (事务管理)transaction manager, use JtaTransactionManager for global tx -->  
+    <bean id="transactionManager"  
+        class="org.springframework.jdbc.datasource.DataSourceTransactionManager">  
+        <property name="dataSource" ref="dataSource" />  
+    </bean>   
+    
+    <tx:annotation-driven transaction-manager="transactionManager" />
+    
+<!-- ======================================================================================= -->
+<!-- ===================================  配置Redis  ======================================= -->
+<!-- ======================================================================================= -->
+	<bean id="redisPoolConfig" class="redis.clients.jedis.JedisPoolConfig" >
+          <property name="maxIdle" value="${redis.maxIdle}" />
+          <property name="maxWaitMillis" value="${redis.maxWait}" />
+          <property name="testOnBorrow" value="${redis.testOnBorrow}" />
+    </bean >    
+    
+    <bean id="jedisConnFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory" >
+		<property name="hostName" value="${redis.host}"/>
+		<property name="port" value="${redis.port}"/>
+		<property name="password" value="${redis.password}"/>
+		<property name="usePool" value="true"/>
+		<property name="poolConfig" ref="redisPoolConfig" />
+    </bean> 
+
+	<!-- redis template definition -->
+	<bean id="redisTemplate" 
+	    class="org.springframework.data.redis.core.RedisTemplate">
+	    
+	    <property name="connectionFactory" ref="jedisConnFactory" />
+		<property name="keySerializer" >
+		    <bean class="org.springframework.data.redis.serializer.StringRedisSerializer" />
+		</property>
+		<property name="valueSerializer" >
+		    <bean class="org.springframework.data.redis.serializer.JdkSerializationRedisSerializer" />
+		</property>	    
+	</bean>
+      
+</beans>
